@@ -373,8 +373,13 @@ if review_clicked:
             issues = result.get("issues_found", [])
             if issues:
                 for item in issues:
-                    severity = str(item.get("severity", "LOW")).upper()
-                    text = item.get("issue", "")
+
+                    if isinstance(item, dict):
+                        severity = str(item.get("severity","LOW")).upper()
+                        text = item.get("issue","")
+                    else:
+                        severity = "LOW"
+                        text = str(item)
 
                     if severity == "HIGH":
                         st.error(f"{severity}: {text}")
