@@ -17,8 +17,6 @@ st.set_page_config(
     layout="wide",
 )
 
-# st.title("💻 AI Pair Engineer")
-# st.write("Paste a code snippet and receive AI suggestions before human code review.")
 
 # ------------------------- Custom Styling -------------------------
 st.markdown("""
@@ -185,8 +183,6 @@ with right:
     st.markdown('</div>', unsafe_allow_html=True)
 
 
-
-
 # ------------------------- AI Prompt -------------------------
 
 def build_prompt(language: str, code: str) -> str:
@@ -212,11 +208,14 @@ Your tasks:
 Return ONLY valid JSON using this format:
 
 {{
+  "quality_score": 0,
+  "summary": "",
   "issues_found": [],
   "three_improvements": [],
   "ux_improvements": [],
   "suggested_tests": [],
   "positive_note": "",
+
   "refactored_code": ""
 }}
 
@@ -254,6 +253,8 @@ def fallback_review(language: str, code: str) -> dict:
         ]
 
     return {
+        "quality_score": 6.5,
+        "summary": "The snippet is focused and easy to follow at a high level, but it mixes core logic with side effects and    does not clearly handle edge cases.",
         "issues_found": [
             "The snippet could separate computation logic from output or side effects more clearly.",
             "Naming and structure could be improved to make the code easier to scan quickly.",
@@ -270,15 +271,40 @@ def fallback_review(language: str, code: str) -> dict:
         "refactored_code": code
     }
 
+# ------------------------- Helpers -------------------------
+
+
+def normalize_result(result: dict, code: str) -> dict:
+    if not result:
+        result = {}
+
+    result.setdefault("quality_score", 7)
+    result.setdefault("summary", "A short review summary was not returned.")
+    result.setdefault("issues_found", [])
+    result.setdefault("three_improvements", [])
+    result.setdefault("ux_improvements", [])
+    result.setdefault("suggested_tests", [])
+    result.setdefault("positive_note", "")
+    result.setdefault("refactored_code", code)
+
+    try:
+        score = float(result.get("quality_score", 7))
+        score = max(0.0, min(10.0, score))
+        result["quality_score"] = score
+    except Exception:
+        result["quality_score"] = 7.0
+
+    return result
 
 # ------------------------- AI Review -------------------------
+
 
 def review_code(language: str, code: str) -> dict:
     try:
         client = OpenAI()
 
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=MODEL_NAME,
             response_format={"type": "json_object"},
             messages=[
                 {
@@ -295,20 +321,49 @@ def review_code(language: str, code: str) -> dict:
 
         text = response.choices[0].message.content.strip()
         parsed = json.loads(text)
-
-        parsed.setdefault("issues_found", [])
-        parsed.setdefault("three_improvements", [])
-        parsed.setdefault("ux_improvements", [])
-        parsed.setdefault("suggested_tests", [])
-        parsed.setdefault("positive_note", "")
-        parsed.setdefault("refactored_code", code)
-
-        return parsed
+        return normalize_result(parsed, code)
 
     except Exception as e:
         st.warning(
-            f"OpenAI response unavailable, so a local fallback review was used. Error: {e}")
-        return fallback_review(language, code)
+            f"OpenAI response unavailable, so a local fallback review was used. Error: {e}"
+        )
+        return normalize_result(fallback_review(language, code), code)
+# def review_code(language: str, code: str) -> dict:
+#     try:
+#         client = OpenAI()
+
+#         response = client.chat.completions.create(
+#             model="gpt-4o-mini",
+#             response_format={"type": "json_object"},
+#             messages=[
+#                 {
+#                     "role": "system",
+#                     "content": "You are a precise senior software engineer who returns strict JSON only."
+#                 },
+#                 {
+#                     "role": "user",
+#                     "content": build_prompt(language, code)
+#                 }
+#             ],
+#             temperature=0.2
+#         )
+
+#         text = response.choices[0].message.content.strip()
+#         parsed = json.loads(text)
+
+#         parsed.setdefault("issues_found", [])
+#         parsed.setdefault("three_improvements", [])
+#         parsed.setdefault("ux_improvements", [])
+#         parsed.setdefault("suggested_tests", [])
+#         parsed.setdefault("positive_note", "")
+#         parsed.setdefault("refactored_code", code)
+
+#         return parsed
+
+#     except Exception as e:
+#         st.warning(
+#             f"OpenAI response unavailable, so a local fallback review was used. Error: {e}")
+#         return fallback_review(language, code)
 
 
 # ------------------------- Output Section -------------------------
@@ -320,8 +375,29 @@ if review_clicked:
         with st.spinner("Reviewing code..."):
             result = review_code(language, code_input)
 
+        result = normalize_result(result, code_input)
+
         st.write("")
         st.subheader("Review Results")
+        st.caption(f"Review Context: Language = {language}")
+        st.caption(f"AI Model: {MODEL_NAME}")
+
+        # Score
+        score = result.get("quality_score", 7.0)
+        st.markdown('<div class="section-card">', unsafe_allow_html=True)
+        st.markdown(
+            '<div class="result-label">Code Quality Score</div>', unsafe_allow_html=True)
+        st.progress(score / 10)
+        st.markdown(
+            f'<div class="score-text">Code Quality Score: <strong>{score}/10</strong></div>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        # Summary
+        st.markdown('<div class="section-card">', unsafe_allow_html=True)
+        st.markdown('<div class="result-label">Review Summary</div>',
+                    unsafe_allow_html=True)
+        st.write(result.get("summary", "No summary returned."))
+        st.markdown('</div>', unsafe_allow_html=True)
 
         col_a, col_b = st.columns(2)
 
@@ -329,8 +405,22 @@ if review_clicked:
             st.markdown('<div class="section-card">', unsafe_allow_html=True)
             st.markdown('<div class="result-label">Issues Found</div>',
                         unsafe_allow_html=True)
-            for issue in result.get("issues_found", []):
-                st.write(f"• {issue}")
+
+            issues = result.get("issues_found", [])
+            if issues:
+                for item in issues:
+                    severity = str(item.get("severity", "LOW")).upper()
+                    text = item.get("issue", "")
+
+                    if severity == "HIGH":
+                        st.error(f"{severity}: {text}")
+                    elif severity == "MEDIUM":
+                        st.warning(f"{severity}: {text}")
+                    else:
+                        st.info(f"{severity}: {text}")
+            else:
+                st.write("No issues were returned.")
+
             st.markdown('</div>', unsafe_allow_html=True)
 
             st.markdown('<div class="section-card">', unsafe_allow_html=True)
@@ -366,9 +456,123 @@ if review_clicked:
             st.info(result.get("positive_note", "No positive note returned."))
             st.markdown('</div>', unsafe_allow_html=True)
 
+        # Before vs After
         st.markdown('<div class="section-card">', unsafe_allow_html=True)
-        st.markdown('<div class="result-label">Refactored Code</div>',
-                    unsafe_allow_html=True)
-        st.code(result.get("refactored_code", ""), language=language.lower())
+        st.markdown(
+            '<div class="result-label">Before vs After Comparison</div>', unsafe_allow_html=True)
+
+        compare_col1, compare_col2 = st.columns(2)
+
+        with compare_col1:
+            st.subheader("Original Code")
+            st.code(code_input, language=language.lower())
+
+        with compare_col2:
+            st.subheader("Refactored Code")
+            st.code(result.get("refactored_code", ""),
+                    language=language.lower())
+
         st.markdown('</div>', unsafe_allow_html=True)
 
+        # Copy section
+        st.markdown('<div class="section-card">', unsafe_allow_html=True)
+        st.markdown(
+            '<div class="result-label">Copy Refactored Code</div>', unsafe_allow_html=True)
+
+        refactored_code = result.get("refactored_code", "")
+        st.code(refactored_code, language=language.lower())
+
+        st.download_button(
+            label="Copy / Download Refactored Code",
+            data=refactored_code,
+            file_name=f"refactored_code.{'py' if language == 'Python' else 'js'}",
+            mime="text/plain"
+        )
+
+        st.markdown(
+            '<div class="copy-note">This button downloads the refactored code as a plain text file, which is a simple way to make the output reusable in the demo.</div>',
+            unsafe_allow_html=True
+        )
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        if st.button("Review Another Snippet"):
+            st.session_state.code_input = ""
+            st.rerun()
+
+# if review_clicked:
+#     if not code_input.strip():
+#         st.warning("Please paste a code snippet first.")
+#     else:
+#         with st.spinner("Reviewing code..."):
+#             result = review_code(language, code_input)
+
+#         st.write("")
+#         st.subheader("Review Results")
+#         st.caption(f"Review Context: Language = {language}")
+#         st.caption(f"AI Model: {MODEL_NAME}")
+
+#         # Score
+#         score = result.get("quality_score", 7.0)
+#         st.markdown('<div class="section-card">', unsafe_allow_html=True)
+#         st.markdown(
+#             '<div class="result-label">Code Quality Score</div>', unsafe_allow_html=True)
+#         st.progress(score / 10)
+#         st.markdown(
+#             f'<div class="score-text">Code Quality Score: <strong>{score}/10</strong></div>', unsafe_allow_html=True)
+#         st.markdown('</div>', unsafe_allow_html=True)
+
+#         # Summary
+#         st.markdown('<div class="section-card">', unsafe_allow_html=True)
+#         st.markdown('<div class="result-label">Review Summary</div>',
+#                     unsafe_allow_html=True)
+#         st.write(result.get("summary", "No summary returned."))
+#         st.markdown('</div>', unsafe_allow_html=True)
+
+#         col_a, col_b = st.columns(2)
+
+#         with col_a:
+#             st.markdown('<div class="section-card">', unsafe_allow_html=True)
+#             st.markdown('<div class="result-label">Issues Found</div>',
+#                         unsafe_allow_html=True)
+#             for issue in result.get("issues_found", []):
+#                 st.write(f"• {issue}")
+#             st.markdown('</div>', unsafe_allow_html=True)
+
+#             st.markdown('<div class="section-card">', unsafe_allow_html=True)
+#             st.markdown(
+#                 '<div class="result-label">Three Improvements</div>', unsafe_allow_html=True)
+#             for item in result.get("three_improvements", []):
+#                 st.write(f"• {item}")
+#             st.markdown('</div>', unsafe_allow_html=True)
+
+#             st.markdown('<div class="section-card">', unsafe_allow_html=True)
+#             st.markdown(
+#                 '<div class="result-label">Suggested Tests</div>', unsafe_allow_html=True)
+#             for test in result.get("suggested_tests", []):
+#                 st.write(f"• {test}")
+#             st.markdown('</div>', unsafe_allow_html=True)
+
+#         with col_b:
+#             st.markdown('<div class="section-card">', unsafe_allow_html=True)
+#             st.markdown(
+#                 '<div class="result-label">UX Improvements</div>', unsafe_allow_html=True)
+#             ux_items = result.get("ux_improvements", [])
+#             if ux_items:
+#                 for ux in ux_items:
+#                     st.write(f"• {ux}")
+#             else:
+#                 st.write(
+#                     "• No direct UX improvements were identified for this snippet.")
+#             st.markdown('</div>', unsafe_allow_html=True)
+
+#             st.markdown('<div class="section-card">', unsafe_allow_html=True)
+#             st.markdown(
+#                 '<div class="result-label">Technical Positive Note</div>', unsafe_allow_html=True)
+#             st.info(result.get("positive_note", "No positive note returned."))
+#             st.markdown('</div>', unsafe_allow_html=True)
+
+#         st.markdown('<div class="section-card">', unsafe_allow_html=True)
+#         st.markdown('<div class="result-label">Refactored Code</div>',
+#                     unsafe_allow_html=True)
+#         st.code(result.get("refactored_code", ""), language=language.lower())
+#         st.markdown('</div>', unsafe_allow_html=True)
