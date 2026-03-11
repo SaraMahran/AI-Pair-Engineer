@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
+
 # ------------------------- Page settings -------------------------
 
 st.set_page_config(
@@ -328,46 +329,9 @@ def review_code(language: str, code: str) -> dict:
             f"OpenAI response unavailable, so a local fallback review was used. Error: {e}"
         )
         return normalize_result(fallback_review(language, code), code)
-# def review_code(language: str, code: str) -> dict:
-#     try:
-#         client = OpenAI()
-
-#         response = client.chat.completions.create(
-#             model="gpt-4o-mini",
-#             response_format={"type": "json_object"},
-#             messages=[
-#                 {
-#                     "role": "system",
-#                     "content": "You are a precise senior software engineer who returns strict JSON only."
-#                 },
-#                 {
-#                     "role": "user",
-#                     "content": build_prompt(language, code)
-#                 }
-#             ],
-#             temperature=0.2
-#         )
-
-#         text = response.choices[0].message.content.strip()
-#         parsed = json.loads(text)
-
-#         parsed.setdefault("issues_found", [])
-#         parsed.setdefault("three_improvements", [])
-#         parsed.setdefault("ux_improvements", [])
-#         parsed.setdefault("suggested_tests", [])
-#         parsed.setdefault("positive_note", "")
-#         parsed.setdefault("refactored_code", code)
-
-#         return parsed
-
-#     except Exception as e:
-#         st.warning(
-#             f"OpenAI response unavailable, so a local fallback review was used. Error: {e}")
-#         return fallback_review(language, code)
 
 
 # ------------------------- Output Section -------------------------
-
 if review_clicked:
     if not code_input.strip():
         st.warning("Please paste a code snippet first.")
@@ -498,81 +462,3 @@ if review_clicked:
         if st.button("Review Another Snippet"):
             st.session_state.code_input = ""
             st.rerun()
-
-# if review_clicked:
-#     if not code_input.strip():
-#         st.warning("Please paste a code snippet first.")
-#     else:
-#         with st.spinner("Reviewing code..."):
-#             result = review_code(language, code_input)
-
-#         st.write("")
-#         st.subheader("Review Results")
-#         st.caption(f"Review Context: Language = {language}")
-#         st.caption(f"AI Model: {MODEL_NAME}")
-
-#         # Score
-#         score = result.get("quality_score", 7.0)
-#         st.markdown('<div class="section-card">', unsafe_allow_html=True)
-#         st.markdown(
-#             '<div class="result-label">Code Quality Score</div>', unsafe_allow_html=True)
-#         st.progress(score / 10)
-#         st.markdown(
-#             f'<div class="score-text">Code Quality Score: <strong>{score}/10</strong></div>', unsafe_allow_html=True)
-#         st.markdown('</div>', unsafe_allow_html=True)
-
-#         # Summary
-#         st.markdown('<div class="section-card">', unsafe_allow_html=True)
-#         st.markdown('<div class="result-label">Review Summary</div>',
-#                     unsafe_allow_html=True)
-#         st.write(result.get("summary", "No summary returned."))
-#         st.markdown('</div>', unsafe_allow_html=True)
-
-#         col_a, col_b = st.columns(2)
-
-#         with col_a:
-#             st.markdown('<div class="section-card">', unsafe_allow_html=True)
-#             st.markdown('<div class="result-label">Issues Found</div>',
-#                         unsafe_allow_html=True)
-#             for issue in result.get("issues_found", []):
-#                 st.write(f"• {issue}")
-#             st.markdown('</div>', unsafe_allow_html=True)
-
-#             st.markdown('<div class="section-card">', unsafe_allow_html=True)
-#             st.markdown(
-#                 '<div class="result-label">Three Improvements</div>', unsafe_allow_html=True)
-#             for item in result.get("three_improvements", []):
-#                 st.write(f"• {item}")
-#             st.markdown('</div>', unsafe_allow_html=True)
-
-#             st.markdown('<div class="section-card">', unsafe_allow_html=True)
-#             st.markdown(
-#                 '<div class="result-label">Suggested Tests</div>', unsafe_allow_html=True)
-#             for test in result.get("suggested_tests", []):
-#                 st.write(f"• {test}")
-#             st.markdown('</div>', unsafe_allow_html=True)
-
-#         with col_b:
-#             st.markdown('<div class="section-card">', unsafe_allow_html=True)
-#             st.markdown(
-#                 '<div class="result-label">UX Improvements</div>', unsafe_allow_html=True)
-#             ux_items = result.get("ux_improvements", [])
-#             if ux_items:
-#                 for ux in ux_items:
-#                     st.write(f"• {ux}")
-#             else:
-#                 st.write(
-#                     "• No direct UX improvements were identified for this snippet.")
-#             st.markdown('</div>', unsafe_allow_html=True)
-
-#             st.markdown('<div class="section-card">', unsafe_allow_html=True)
-#             st.markdown(
-#                 '<div class="result-label">Technical Positive Note</div>', unsafe_allow_html=True)
-#             st.info(result.get("positive_note", "No positive note returned."))
-#             st.markdown('</div>', unsafe_allow_html=True)
-
-#         st.markdown('<div class="section-card">', unsafe_allow_html=True)
-#         st.markdown('<div class="result-label">Refactored Code</div>',
-#                     unsafe_allow_html=True)
-#         st.code(result.get("refactored_code", ""), language=language.lower())
-#         st.markdown('</div>', unsafe_allow_html=True)
