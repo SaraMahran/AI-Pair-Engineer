@@ -185,20 +185,7 @@ with right:
     st.markdown('</div>', unsafe_allow_html=True)
 
 
-# # ------------------------- Language Selector -------------------------
 
-# language = st.selectbox(
-#     "Programming Language",
-#     ["Python, JavaScript"]
-# )
-
-# # ------------------------- Code Input -------------------------
-
-# code_input = st.text_area(
-#     "Paste your code snippet here",
-#     height=300,
-#     placeholder="Paste your code here..."
-# )
 
 # ------------------------- AI Prompt -------------------------
 
@@ -239,50 +226,6 @@ Code:
 ```"""
 # ------------------------- Fallback Review -------------------------
 
-
-# def fallback_review(language: str, code: str) -> dict:
-#     ux_improvements = []
-#     code_lower = code.lower()
-
-#     if any(
-#         keyword in code_lower
-#         for keyword in ["input", "form", "button", "onclick", "submit", "alert", "render", "display"]
-
-#     ):
-#         ux_improvements.append("Add clearer validation or feedback for invalid user input.",
-#                                "Ensure the user sees a meaningful state when an action succeeds or fails."
-#                                )
-
-#         suggested_tests = []
-#         if language == "Python":
-#             suggested_tests = [
-#                 "Test the function with expected valid input and verify the returned result.",
-#                 "Test empty or missing input to confirm the function handles it safely.",
-#                 "Test invalid input types and verify the function fails predictably or validates input."
-#             ]
-#         else:
-#             suggested_tests = [
-#                 "Test the function with expected valid input and verify the output or side effect.",
-#                 "Test empty or undefined input to confirm safe handling.",
-#                 "Test invalid data types and verify the code handles them defensively."
-#             ]
-
-#         return {
-#             "issues_found": [
-#                 "The snippet could separate computation logic from output or side effects more clearly.",
-#                 "Naming and structure could be improved to make the code easier to scan quickly.",
-#                 "Edge cases and invalid inputs are not clearly handled."
-#             ],
-#             "three_improvements": [
-#                 "Use more descriptive function and variable names to improve readability.",
-#                 "Move core logic into smaller reusable units where appropriate.",
-#                 "Add explicit handling for edge cases and invalid inputs."
-#             ],
-#             "ux_improvements": ux_improvements,
-#             "suggested_tests": suggested_tests,
-#             "positive_note": "The snippet keeps the logic focused on a single task, which is a good starting point for maintainable code.",
-#             "refactored_code": code
-#         }
 
 def fallback_review(language: str, code: str) -> dict:
     ux_improvements = []
@@ -329,43 +272,6 @@ def fallback_review(language: str, code: str) -> dict:
 
 
 # ------------------------- AI Review -------------------------
-
-# def review_code(language: str, code: str) -> dict:
-#     try:
-#         client = OpenAI()
-
-#         response = client.chat.completions.create(
-#             model="gpt-4o-mini",
-#             response_format={"type": "json_object"},
-#             messages=[
-#                 {
-#                     "role": "system",
-#                     "content": "You are a precise senior software engineer who returns strict JSON only."
-#                 },
-#                 {
-#                     "role": "user",
-#                     "content": build_prompt(language, code)
-#                 }
-#             ],
-#             temperature=0.2
-#         )
-
-#         text = response.choices[0].message.content.strip()
-#         parsed = json.loads(text)
-
-#         parsed.setdefault("issues_found", [])
-#         parsed.setdefault("three_improvements", [])
-#         parsed.setdefault("ux_improvements", [])
-#         parsed.setdefault("suggested_tests", [])
-#         parsed.setdefault("positive_note", "")
-#         parsed.setdefault("refactored_code", code)
-
-#         return parsed
-
-#     except Exception:
-#         st.warning(
-#             "OpenAI response unavailable, so a local fallback review was used.")
-#         return fallback_review(language, code)
 
 def review_code(language: str, code: str) -> dict:
     try:
@@ -466,90 +372,3 @@ if review_clicked:
         st.code(result.get("refactored_code", ""), language=language.lower())
         st.markdown('</div>', unsafe_allow_html=True)
 
-# def review_code(language: str, code: str) -> dict:
-#     try:
-#         client = OpenAI()
-
-#         prompt = build_ai_prompt(language, code)
-
-#         response = client.chat.completions.create(
-#             model="gpt-4o-mini",
-#             messages=[
-#                 {"role": "system", "content": "You are a professional code reviewer."},
-#                 {"role": "user", "content": prompt}
-#             ],
-#             temperature=0.3
-#         )
-
-#         text = response.choices[0].message.content
-
-#         start = text.find("{")
-#         end = text.rfind("}") + 1
-
-#         json_text = text[start:end]
-
-#         return json.loads(json_text)
-
-#     except Exception as e:
-#         st.error(f"AI request failed. Showing basic fallback response.")
-
-#         return {
-#             "issues_found": [
-#                 "Code could benefit from clearer function separation",
-#                 "Consider improving variable naming",
-#                 "Edge cases may not be handled"
-#             ],
-#             "three_improvements": [
-#                  "Use descriptive variable names",
-#                 "Break logic into smaller functions",
-#                 "Add comments explaining key logic"
-#             ],
-#             "suggested_tests": [
-#                 "Test user creation with different data types",
-#                 "Test user update with invalid input",
-#                 "Test user deletion with non-existent user"
-#             ],
-#             "positive_note": "Code is generally well-structured and easy to follow.",
-#             "refactored_code": code
-#         }
-
-# # ------------------------- Review button -------------------------
-# if st.button("Review Code"):
-
-#     if code_input.strip() == "":
-#         st.warning("Please paste your code snippet first.")
-
-#     else:
-#         with st.spinner("Reviewing code..."):
-
-#             result = review_code(language, code_input)
-
-#         st.success("Code review complete!")
-
-#         col1, col2 = st.columns(2)
-
-#         with col1:
-#             st.subheader("Issues Found")
-
-#             for issue in result["issues_found"]:
-#                 st.write("•", issue)
-
-#             st.subheader("Three Improvements")
-
-#             for improvement in result["three_improvements"]:
-#                 st.write("•", improvement)
-
-#             st.subheader("Suggested Tests")
-
-#             for test in result["suggested_tests"]:
-#                 st.write("•", test)
-
-#             with col2:
-
-#                 st.subheader("Positive Note")
-
-#                 st.info(result["positive_note"])
-
-#                 st.subheader("Refactored Code")
-
-#                 st.code(result["refactored_code"], language=language.lower())
