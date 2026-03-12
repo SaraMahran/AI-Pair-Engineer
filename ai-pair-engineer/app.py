@@ -325,9 +325,7 @@ def review_code(language: str, code: str) -> dict:
         return normalize_result(parsed, code)
 
     except Exception as e:
-        # st.warning(
-        #     f"OpenAI response unavailable, so a local fallback review was used. Error: {e}"
-        # )
+        
         st.warning(
             "AI review unavailable, so a local fallback review was used."
         )
