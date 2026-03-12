@@ -30,3 +30,9 @@ dist/
 
 # Logs
 *.log
+
+# Ignore documentation file
+AI Pair Engineer.pdf
+
+# Ignore screenshots folder
+Screenshot/
